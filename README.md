@@ -370,7 +370,7 @@ To contribute:
 2. Make your changes and test them
 3. Submit a pull request with a clear description
 
-See [QUICKSTART.md](QUICKSTART.md) to get your local environment running.
+See [QuickStart](https://github.com/DeepTempo/vigil/blob/main/README.md#quick-start) to get your local environment running.
 
 ---
 
