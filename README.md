@@ -1,0 +1,370 @@
+# DeepTempo AI SOC
+
+AI-powered Security Operations Center built on three pillars: **Data Sources** for ingesting and analyzing security telemetry, **Skills** for orchestrated multi-agent workflows, and **MCP** for extensible tool integration across your entire security stack.
+
+---
+
+## Skills — One-Click Multi-Agent Workflows
+
+Skills are the operational core of AI SOC. Each skill chains multiple specialized AI agents into an end-to-end playbook that executes with a single command. No manual hand-offs, no copy-pasting between tools — the agents coordinate automatically.
+
+| Skill | Agents | What It Does |
+|-------|--------|-------------|
+| **Incident Response** | Triage → Investigator → Responder → Reporter | NIST IR framework: triage an alert, investigate root cause, contain the threat, produce an audit-ready report |
+| **Full Investigation** | Investigator → MITRE Analyst → Correlator → Responder → Reporter | Deep-dive with ATT&CK mapping, cross-signal correlation, response planning, and comprehensive documentation |
+| **Threat Hunt** | Threat Hunter → Network Analyst → Malware Analyst → Threat Intel → Reporter | Hypothesis-driven hunting across network, endpoint, and threat intel — with IOC enrichment and detection recommendations |
+| **Forensic Analysis** | Forensics → Malware Analyst → Network Analyst → Reporter | Post-incident digital forensics with evidence preservation, chain-of-custody documentation suitable for legal proceedings |
+
+**How it works:** Say `"Run incident response on finding f-20260215-abc123"` and the system sequences four agents — triage scores the alert, investigator digs into root cause, responder submits containment actions with confidence-based approval, and reporter generates the final documentation.
+
+Skills are defined as `SKILL.md` files in the `skills/` directory and are fully customizable. Create your own by defining the agent sequence, tools used, and phase-by-phase instructions.
+
+```
+skills/
+├── incident-response/SKILL.md
+├── full-investigation/SKILL.md
+├── threat-hunt/SKILL.md
+└── forensic-analysis/SKILL.md
+```
+
+---
+
+## MCP — 30+ Integrations Across Your Security Stack
+
+AI SOC uses the [Model Context Protocol](https://modelcontextprotocol.io/) to connect agents to your existing tools. MCP servers give every agent real-time access to your SIEM, EDR, threat intel, sandbox, ticketing, and communication platforms — all through a unified interface.
+
+| Category | Integrations | Tools |
+|----------|-------------|-------|
+| **SIEM** | Splunk | Natural language → SPL, search by IP/host/user, index listing |
+| **EDR / XDR** | CrowdStrike | Alert lookup, host isolation/unisolation, host status |
+| **Threat Intel** | VirusTotal, Shodan, AlienVault OTX, MISP | Hash/IP/domain/URL reputation, host recon, pulse matching, IOC search |
+| **Sandbox** | Hybrid Analysis, Joe Sandbox, ANY.RUN | File submission, report retrieval, IOC extraction |
+| **Timeline** | Timesketch | Forensic timeline analysis, evidence export |
+| **Detection Engineering** | Security-Detections-MCP | 7,200+ rules (Sigma, Splunk, Elastic, KQL), 71 tools, coverage analysis, gap identification |
+| **Ticketing** | Jira | Issue creation, updates, search |
+| **Communication** | Slack | Alerts, channel creation, file uploads |
+| **Data Pipeline** | Cribl Stream | Log normalization, noise filtering, multi-destination routing |
+| **Core** | DeepTempo Findings, Approval, ATT&CK Layer, Tempo Flow | Built-in SOC operations |
+
+**Coming soon:** AWS Security Hub, Azure Sentinel, GCP Security, Okta, Microsoft Defender, SentinelOne, Carbon Black, PagerDuty.
+
+MCP servers live in `mcp-servers/` and are configured via the Settings UI or `mcp_config.json`. Add a new integration by dropping an MCP server into the `tools/` directory — or use the built-in Custom Integration Builder to generate one from API docs.
+
+---
+
+## 12 Specialized AI Agents
+
+Every agent has access to 19 backend tools via Agent SDK and 100+ extended tools via MCP. Agents are the building blocks that Skills orchestrate.
+
+| Agent | Role | Thinking | Key Capability |
+|-------|------|----------|----------------|
+| **Triage** | Rapid alert assessment | Fast | Severity scoring, false-positive filtering, escalation decisions |
+| **Investigator** | Root cause analysis | Deep | Evidence collection, timeline reconstruction, cross-source correlation |
+| **Threat Hunter** | Proactive hunting | Deep | Hypothesis-driven anomaly detection, pattern intelligence from 7,200+ rules |
+| **Correlator** | Multi-signal linking | Deep | Campaign identification, attack chain reconstruction, entity mapping |
+| **Responder** | Containment actions | Fast | NIST IR containment, blast radius assessment, confidence-scored approval requests |
+| **Reporter** | Documentation | Balanced | Executive summaries, technical reports, audience-tailored content |
+| **MITRE Analyst** | ATT&CK mapping | Deep | Technique identification, coverage analysis, gap prioritization, detection templates |
+| **Forensics** | Digital forensics | Deep | Artifact analysis, chain of custody, multi-domain examination |
+| **Threat Intel** | IOC enrichment | Deep | Actor attribution, campaign tracking, OSINT integration |
+| **Compliance** | Regulatory checks | Balanced | NIST, ISO, PCI-DSS, HIPAA, GDPR, SOC 2 assessment |
+| **Malware Analyst** | Malware examination | Deep | Static/dynamic analysis, family classification, C2 identification |
+| **Network Analyst** | Traffic analysis | Deep | Flow analysis, protocol anomalies, lateral movement detection |
+
+---
+
+## Quick Start
+
+```bash
+git clone --recurse-submodules https://github.com/deeptempo/ai-opensoc.git
+cd ai-opensoc
+./start_web.sh
+```
+
+> **Note:** Docker must be running before you start. The startup script handles everything else: creates the Python virtual environment, installs dependencies, starts PostgreSQL, initializes the database with a default admin user, installs frontend packages, and launches both backend and frontend servers.
+
+Auth bypass is enabled by default (`DEV_MODE=true`) for quick development.
+
+### Prerequisites
+
+- **Python 3.10+**
+- **Node.js 18+** (for frontend)
+- **Docker Desktop** (must be running — used for PostgreSQL)
+- **Git** (with submodule support)
+- Claude API key from [console.anthropic.com](https://console.anthropic.com/) *(optional for initial testing)*
+
+### Default Login Credentials
+
+| | |
+|---|---|
+| **Username** | `admin` |
+| **Password** | `admin123` |
+
+> Change these in production!
+
+### Manual Install
+
+<details>
+<summary>Click to expand manual setup steps</summary>
+
+```bash
+# Clone with submodules
+git clone --recurse-submodules https://github.com/deeptempo/ai-opensoc.git
+cd ai-opensoc
+
+# If you already cloned without --recurse-submodules:
+git submodule update --init --recursive
+
+# Environment (DEV_MODE enabled by default)
+cp env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY (optional for testing)
+
+# Backend setup
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Frontend setup
+cd frontend
+npm install
+cd ..
+```
+
+</details>
+
+### Run
+
+**Option A: All-in-one (recommended)**
+
+```bash
+# Interactive mode (keeps terminal attached, Ctrl+C to stop)
+./start_web.sh
+
+# OR background mode (frees terminal)
+./start_daemon.sh
+```
+
+**Option B: Manual (separate terminals)**
+
+```bash
+# Terminal 1: Start database (Docker must be running)
+cd docker && docker-compose up -d postgres
+
+# Terminal 2: Initialize admin user and generate demo data
+source venv/bin/activate
+python scripts/init_default_user.py
+python scripts/demo.py
+
+# Terminal 3: Start backend
+source venv/bin/activate
+export PYTHONPATH="${PWD}:${PYTHONPATH}"
+uvicorn backend.main:app --host 127.0.0.1 --port 6987 --reload
+
+# Terminal 4: Start frontend
+cd frontend && npm run dev
+```
+
+### Shutdown
+
+```bash
+./shutdown_all.sh              # Stop native processes only (Docker keeps running)
+./shutdown_all.sh -d           # Stop native processes + Docker containers
+./shutdown_all.sh -d --full    # Stop + remove containers and volumes
+```
+
+### Access
+
+- **Frontend**: http://localhost:6988
+- **API**: http://localhost:6987
+- **API Docs**: http://localhost:6987/docs
+
+### Run with Docker (Full Stack)
+
+```bash
+cd docker && docker-compose up -d
+```
+
+Starts PostgreSQL, Backend API, and SOC Daemon.
+
+### Run SOC Daemon (Headless Mode)
+
+For autonomous 24/7 monitoring without the UI:
+
+```bash
+source venv/bin/activate
+python daemon/main.py
+```
+
+---
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        Skills Layer                               │
+│  Incident Response │ Full Investigation │ Threat Hunt │ Forensics │
+│              (Multi-agent workflow orchestration)                  │
+└──────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                   12 Specialized AI Agents                        │
+│  Triage │ Investigator │ Hunter │ Correlator │ Responder │ ...   │
+└──────────────────────────────────────────────────────────────────┘
+                │                              │
+     Agent SDK (19 tools)              MCP (100+ tools)
+                │                              │
+                ▼                              ▼
+┌──────────────────────────┐  ┌────────────────────────────────────┐
+│     Backend Services     │  │          MCP Servers (30+)         │
+│  Detections (7,200+)     │  │  Splunk │ CrowdStrike │ VirusTotal │
+│  Case Management         │  │  Shodan │ Jira │ Slack │ Cribl    │
+│  Approvals │ MITRE ATT&CK│  │  Timesketch │ MISP │ ANY.RUN      │
+│  Similarity Search       │  │  Hybrid Analysis │ Joe Sandbox    │
+└──────────────────────────┘  └────────────────────────────────────┘
+                │
+                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                  Data Sources + PostgreSQL                         │
+│  Logs │ Alerts │ Findings │ Embeddings │ Cases │ Detection Rules  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Additional Features
+
+- **Chat-Driven Case Management** — Build cases through natural language. Say "add this to case XYZ" and the system handles findings, activities, timelines, and MITRE tagging. [Learn more](docs/CHAT_CASE_MANAGEMENT.md)
+- **Detection Engineering** — 7,200+ detection rules (Sigma, Splunk, Elastic, KQL) with coverage analysis, gap identification, and AI-assisted template generation. [Learn more](docs/DETECTION_ENGINEERING.md)
+- **Case Management** — Full lifecycle tracking with PDF reports
+- **Approval Workflow** — Human-in-the-loop with confidence-based automation (auto-approve above 0.90, require review below 0.85)
+- **AI Enrichment** — Automatic threat analysis cached per finding
+- **MITRE ATT&CK** — Technique mapping and Navigator layer visualization
+
+## Project Structure
+
+```
+ai-opensoc/
+├── skills/            # SKILL.md workflow definitions (4 built-in)
+├── mcp-servers/       # MCP server implementations (30+)
+├── backend/           # FastAPI backend API + Agent SDK tools
+├── frontend/          # React + MUI frontend
+├── services/          # Business logic (skills service, etc.)
+├── daemon/            # Headless autonomous SOC service
+├── tools/             # Additional tool implementations
+├── database/          # PostgreSQL models and migrations
+├── core/              # Config, rate limiting, exceptions
+├── docker/            # Docker Compose setup
+├── docs/              # Documentation
+└── data/schemas/      # JSON validation schemas
+```
+
+## Example Usage
+
+### Run a Skill
+```
+You: "Run incident response on finding f-20260215-abc123"
+Claude: [triage] Severity: Critical — confirmed C2 beaconing from HOST-42
+        [investigate] Root cause: phishing email → macro execution → Cobalt Strike beacon
+        [respond] Submitted host isolation (confidence 0.96 — auto-approved)
+        [report] Incident report generated with MITRE ATT&CK layer
+```
+
+### Proactive Threat Hunt
+```
+You: "Hunt for C2 beaconing activity across all network findings"
+Claude: [hunt] Hypothesis: periodic outbound connections to rare destinations
+        [network] Found 3 hosts beaconing to 185.220.101.0/24 every 300s
+        [malware] Cobalt Strike beacon — extracted 4 IOCs
+        [intel] IP attributed to APT28 infrastructure (confidence 0.72)
+        [report] Hunt report with 12 IOCs and 3 new detection recommendations
+```
+
+### Chat-Driven Case Building
+```
+You: "Add this to case-20260121-abc123 and note it's part of the kill chain"
+Claude: ✓ Added finding to case
+        ✓ Logged activity: Part of lateral movement kill chain
+        ✓ Tagged with T1021.001 (RDP)
+
+You: "Find similar findings and add them all to this case"
+Claude: ✓ Found 3 similar findings via embedding search
+        ✓ Added f-002, f-003, f-004 to case
+        ✓ Updated timeline with lateral movement progression
+```
+
+## Documentation
+
+| Doc | Contents |
+|-----|----------|
+| [docs/AGENTS.md](docs/AGENTS.md) | 12 SOC AI agents reference |
+| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) | MCP integrations — Splunk, CrowdStrike, VirusTotal, 28+ tools |
+| [docs/DETECTION_ENGINEERING.md](docs/DETECTION_ENGINEERING.md) | Detection engineering with 7,200+ rules |
+| [docs/CHAT_CASE_MANAGEMENT.md](docs/CHAT_CASE_MANAGEMENT.md) | Chat-driven case building guide |
+| [docs/CHAT_CASE_QUICK_REFERENCE.md](docs/CHAT_CASE_QUICK_REFERENCE.md) | Quick reference for chat commands |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Environment variables, secrets, deployment |
+| [docs/FEATURES.md](docs/FEATURES.md) | Cases, approvals, enrichment |
+| [docs/API.md](docs/API.md) | MCP tool contracts, data models |
+| [docs/README.md](docs/README.md) | Architecture overview |
+| [docs/SPLUNK_TESTING_GUIDE.md](docs/SPLUNK_TESTING_GUIDE.md) | Splunk test data and integration testing |
+
+## Testing with Splunk & Claude
+
+<details>
+<summary>Click to expand Splunk testing instructions</summary>
+
+```bash
+# Generate 280 realistic security events
+python3 scripts/generate_splunk_test_data.py
+
+# Send directly to Splunk
+python3 scripts/generate_splunk_test_data.py \
+    --send-to-splunk \
+    --hec-url https://your-splunk:8088/services/collector \
+    --hec-token your-hec-token \
+    --no-verify-ssl
+
+# Test full integration (generate → create case → enrich with Claude)
+python3 scripts/test_splunk_claude_integration.py \
+    --generate-data \
+    --create-case
+```
+
+**Test data:** 280 events (brute force, malware, C2 traffic, exfiltration, privilege escalation, lateral movement, recon) with full MITRE ATT&CK mappings and realistic IOCs.
+
+See the [Splunk Testing Guide](docs/SPLUNK_TESTING_GUIDE.md) for complete instructions.
+
+</details>
+
+## Export PostgreSQL Data to Splunk
+
+<details>
+<summary>Click to expand export instructions</summary>
+
+```bash
+# Export everything to Splunk
+python scripts/export_postgres_to_splunk.py \
+    --hec-url https://your-splunk:8088/services/collector \
+    --hec-token your-hec-token \
+    --index deeptempo \
+    --no-verify-ssl
+
+# Save to file for review first
+python scripts/export_postgres_to_splunk.py \
+    --save-to-file postgres_export.json
+```
+
+**Quick Start:** See [POSTGRES_TO_SPLUNK_QUICKSTART.md](POSTGRES_TO_SPLUNK_QUICKSTART.md)
+**Full Guide:** See [docs/POSTGRES_TO_SPLUNK_EXPORT.md](docs/POSTGRES_TO_SPLUNK_EXPORT.md)
+
+</details>
+
+## License
+
+Apache 2.0 — See [LICENSE](LICENSE)
+
+## References
+
+- [DeepTempo](https://deeptempo.ai) — AI for security operations
+- [Model Context Protocol](https://modelcontextprotocol.io/) — MCP specification
+- [ATT&CK Navigator](https://mitre-attack.github.io/attack-navigator/) — MITRE visualization

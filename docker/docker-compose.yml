@@ -1,0 +1,218 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: deeptempo-postgres
+    environment:
+      POSTGRES_DB: deeptempo_soc
+      POSTGRES_USER: deeptempo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deeptempo_secure_password_change_me}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deeptempo -d deeptempo_soc"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - deeptempo-network
+
+  # Redis - Job queue backend for ARQ (LLM request queuing + session store)
+  redis:
+    image: redis:7-alpine
+    container_name: deeptempo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - deeptempo-network
+
+  # SOC Backend API
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: deeptempo-backend
+    environment:
+      - DATABASE_URL=postgresql://deeptempo:${POSTGRES_PASSWORD:-deeptempo_secure_password_change_me}@postgres:5432/deeptempo_soc
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "6987:6987"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - deeptempo-network
+
+  # SOC Daemon - Autonomous monitoring and response
+  soc-daemon:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.daemon
+    container_name: deeptempo-daemon
+    environment:
+      # Database
+      - DATABASE_URL=postgresql://deeptempo:${POSTGRES_PASSWORD:-deeptempo_secure_password_change_me}@postgres:5432/deeptempo_soc
+      # AI
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Redis (LLM queue)
+      - REDIS_URL=redis://redis:6379/0
+      # Polling intervals (seconds)
+      - DAEMON_SPLUNK_POLL_INTERVAL=${DAEMON_SPLUNK_POLL_INTERVAL:-300}
+      - DAEMON_CROWDSTRIKE_POLL_INTERVAL=${DAEMON_CROWDSTRIKE_POLL_INTERVAL:-60}
+      # Processing
+      - DAEMON_AUTO_TRIAGE=${DAEMON_AUTO_TRIAGE:-true}
+      - DAEMON_AUTO_ENRICH=${DAEMON_AUTO_ENRICH:-true}
+      - DAEMON_BATCH_SIZE=${DAEMON_BATCH_SIZE:-10}
+      # Response
+      - DAEMON_AUTO_RESPONSE=${DAEMON_AUTO_RESPONSE:-true}
+      - DAEMON_CONFIDENCE_THRESHOLD=${DAEMON_CONFIDENCE_THRESHOLD:-0.90}
+      - DAEMON_FORCE_APPROVAL=${DAEMON_FORCE_APPROVAL:-false}
+      - DAEMON_DRY_RUN=${DAEMON_DRY_RUN:-false}
+      # Escalation
+      - DAEMON_ESCALATION_ENABLED=${DAEMON_ESCALATION_ENABLED:-true}
+      - DAEMON_SLACK_ENABLED=${DAEMON_SLACK_ENABLED:-true}
+      - DAEMON_SLACK_CHANNEL=${DAEMON_SLACK_CHANNEL:-#soc-alerts}
+      - DAEMON_PAGERDUTY_ENABLED=${DAEMON_PAGERDUTY_ENABLED:-false}
+      - DAEMON_ESCALATE_SEVERITIES=${DAEMON_ESCALATE_SEVERITIES:-critical,high}
+      # Scheduler
+      - DAEMON_THREAT_HUNT_ENABLED=${DAEMON_THREAT_HUNT_ENABLED:-true}
+      - DAEMON_THREAT_HUNT_INTERVAL=${DAEMON_THREAT_HUNT_INTERVAL:-86400}
+      - DAEMON_CLEANUP_RETENTION_DAYS=${DAEMON_CLEANUP_RETENTION_DAYS:-90}
+      # Metrics
+      - DAEMON_METRICS_ENABLED=${DAEMON_METRICS_ENABLED:-true}
+      - DAEMON_METRICS_PORT=${DAEMON_METRICS_PORT:-9090}
+      # Webhook
+      - DAEMON_WEBHOOK_ENABLED=${DAEMON_WEBHOOK_ENABLED:-true}
+      - DAEMON_WEBHOOK_PORT=${DAEMON_WEBHOOK_PORT:-8081}
+      # Logging
+      - DAEMON_LOG_LEVEL=${DAEMON_LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+      # Integrations (loaded from core/config)
+      - SPLUNK_URL=${SPLUNK_URL}
+      - SPLUNK_USERNAME=${SPLUNK_USERNAME}
+      - SPLUNK_PASSWORD=${SPLUNK_PASSWORD}
+      - CROWDSTRIKE_CLIENT_ID=${CROWDSTRIKE_CLIENT_ID}
+      - CROWDSTRIKE_CLIENT_SECRET=${CROWDSTRIKE_CLIENT_SECRET}
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY}
+      - SHODAN_API_KEY=${SHODAN_API_KEY}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - PAGERDUTY_ROUTING_KEY=${PAGERDUTY_ROUTING_KEY}
+    ports:
+      - "8081:8081"  # Webhook ingestion
+      - "9090:9090"  # Metrics/health
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - deeptempo-network
+
+  # ARQ Worker - Processes LLM requests from the queue
+  llm-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: deeptempo-llm-worker
+    command: ["python", "-m", "services.run_llm_worker"]
+    environment:
+      - DATABASE_URL=postgresql://deeptempo:${POSTGRES_PASSWORD:-deeptempo_secure_password_change_me}@postgres:5432/deeptempo_soc
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - deeptempo-network
+
+  # PgAdmin for database management (optional, can be commented out in production)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: deeptempo-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@deeptempo.ai}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - deeptempo-network
+    profiles:
+      - dev  # Only start in dev profile
+
+  # Splunk Enterprise for SIEM testing
+  splunk:
+    image: splunk/splunk:latest
+    platform: linux/amd64
+    container_name: deeptempo-splunk
+    hostname: splunk
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
+      - SPLUNK_PASSWORD=changeme123
+      - SPLUNK_HEC_TOKEN=00000000-0000-0000-0000-000000000000
+    ports:
+      - "6990:8000"   # Web UI
+      - "8088:8088"   # HEC (HTTP Event Collector)
+      - "8089:8089"   # Management port
+      - "9997:9997"   # Forwarder port
+    volumes:
+      - splunk_data:/opt/splunk/var
+      - splunk_etc:/opt/splunk/etc
+    restart: unless-stopped
+    networks:
+      - deeptempo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    profiles:
+      - splunk  # Only start when splunk profile is active
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  splunk_data:
+    driver: local
+  splunk_etc:
+    driver: local
+
+networks:
+  deeptempo-network:
+    driver: bridge
+
