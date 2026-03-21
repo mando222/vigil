@@ -74,8 +74,8 @@ MCP servers live in `mcp-servers/` and are configured via the Settings UI or `mc
 ## Quick Start
 
 ```bash
-git clone --recurse-submodules https://github.com/deeptempo/ai-opensoc.git
-cd ai-opensoc
+git clone --recurse-submodules https://github.com/Vigil-Soc/vigil.git
+cd Vigil-Soc
 ./start_web.sh
 ```
 
