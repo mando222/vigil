@@ -45,7 +45,6 @@ from api.graph import router as graph_router
 from api.case_templates import router as case_templates_router
 from api.case_metrics import router as case_metrics_router
 from api.case_search import router as case_search_router
-from api.webhooks import router as webhooks_router
 from api.sla_policies import router as sla_policies_router
 
 # Authentication routers
@@ -144,7 +143,6 @@ app.include_router(orchestrator_router, prefix="/api/orchestrator", tags=["orche
 app.include_router(case_templates_router, prefix="/api/cases/templates", tags=["case-templates"])
 app.include_router(case_metrics_router, prefix="/api/cases/metrics", tags=["case-metrics"])
 app.include_router(case_search_router, prefix="/api/cases/search", tags=["case-search"])
-app.include_router(webhooks_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(sla_policies_router, prefix="/api/sla-policies", tags=["sla-policies"])
 
 @app.on_event("startup")
